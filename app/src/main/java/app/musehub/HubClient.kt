@@ -240,6 +240,21 @@ class HubClient(var baseUrl: String, var token: String) {
         } catch (e: Exception) { Result.failure(Exception("连不上 Hub：${e.message}")) }
     }
 
+    suspend fun getAutoReply(): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val (code, text) = request("GET", "/api/settings")
+            ok(code, text) { it.getJSONObject("settings").optBoolean("auto_reply", false) }
+        } catch (e: Exception) { Result.failure(Exception("连不上 Hub：${e.message}")) }
+    }
+
+    suspend fun setAutoReply(on: Boolean): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val body = JSONObject().put("auto_reply", on).toString()
+            val (code, text) = request("POST", "/api/settings", body)
+            ok(code, text) { it.getJSONObject("settings").optBoolean("auto_reply", false) }
+        } catch (e: Exception) { Result.failure(Exception("连不上 Hub：${e.message}")) }
+    }
+
     /** Rename a member (display name / role only; id, token, rooms and tasks untouched). */
     suspend fun updateAgent(id: String, name: String, role: String): Result<Agent> = withContext(Dispatchers.IO) {
         try {

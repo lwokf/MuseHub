@@ -26,6 +26,8 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _online = MutableStateFlow<Boolean?>(null)
     val online: StateFlow<Boolean?> = _online
+    private val _autoReply = MutableStateFlow(false)
+    val autoReply: StateFlow<Boolean> = _autoReply
     private val _error = MutableStateFlow("")
     val error: StateFlow<String> = _error
     private val _toast = MutableStateFlow("")
@@ -77,6 +79,7 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
             client.getTasks().onSuccess { _tasks.value = it }.onFailure { _error.value = it.message ?: "拉任务失败" }
             client.getFiles().onSuccess { _files.value = it }.onFailure { _error.value = it.message ?: "拉文件失败" }
             client.getAudit().onSuccess { _audit.value = it }.onFailure { /* audit is best-effort */ }
+            client.getAutoReply().onSuccess { _autoReply.value = it }.onFailure { /* best-effort */ }
             if (roomId != null) refreshMessages(roomId)
             _online.value = _error.value.isBlank()
         }
@@ -94,6 +97,14 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
             val r = client.sendMessage(from, roomId, text, replyTo = replyTo)
             if (r.isSuccess) { refreshMessages(roomId); onDone(true) }
             else { _error.value = r.exceptionOrNull()?.message ?: "发送失败"; onDone(false) }
+        }
+    }
+
+    fun setAutoReply(on: Boolean) {
+        viewModelScope.launch {
+            client.setAutoReply(on)
+                .onSuccess { _autoReply.value = it; setToast(if (it) "自动回复已打开" else "自动回复已关闭，消息交由 bo 处理") }
+                .onFailure { _error.value = it.message ?: "切换失败" }
         }
     }
 

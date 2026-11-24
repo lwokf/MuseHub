@@ -68,6 +68,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -730,6 +731,7 @@ fun ManageView(vm: HubViewModel) {
     val agents by vm.agents.collectAsState()
     val audit by vm.audit.collectAsState()
     val online by vm.online.collectAsState()
+    val autoReply by vm.autoReply.collectAsState()
     var baseUrl by remember { mutableStateOf(vm.store.baseUrl) }
     var token by remember { mutableStateOf(vm.store.token) }
     var testResult by remember { mutableStateOf("") }
@@ -742,6 +744,13 @@ fun ManageView(vm: HubViewModel) {
             Text("状态：${if (online == true) "已连接" else if (online == false) "已断开" else "未连接"}", fontSize = 14.sp)
             Text("当前身份：${vm.store.agentId.ifBlank { "未选" }}", fontSize = 12.sp, color = TextSub)
             if (online == false) Text("连接异常，请检查 Hub 地址与 Token，点下方测试连接重试。", fontSize = 12.sp, color = Warn)
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("自动回复", fontSize = 14.sp)
+                    Text("打开：muse-main 定时查收并代回；关闭：消息留给你处理", fontSize = 11.sp, color = TextSub)
+                }
+                Switch(checked = autoReply, onCheckedChange = { vm.setAutoReply(it) })
+            }
             SectionTitle("成员")
             Text("点成员可改显示名字和说明", fontSize = 11.sp, color = TextSub)
             agents.forEach { a ->
