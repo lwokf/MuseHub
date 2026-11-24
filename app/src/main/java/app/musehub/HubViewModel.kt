@@ -97,6 +97,14 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun updateAgent(id: String, name: String, role: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val r = client.updateAgent(id, name, role)
+            if (r.isSuccess) { refreshAll(); onDone(true) }
+            else { _error.value = r.exceptionOrNull()?.message ?: "改名失败"; onDone(false) }
+        }
+    }
+
     fun createRoom(name: String, type: String, onDone: (Boolean) -> Unit) {
         viewModelScope.launch {
             val r = client.createRoom(name, type)

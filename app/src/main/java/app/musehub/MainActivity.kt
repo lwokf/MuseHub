@@ -732,6 +732,7 @@ fun ManageView(vm: HubViewModel) {
     var token by remember { mutableStateOf(vm.store.token) }
     var testResult by remember { mutableStateOf("") }
     var showRegister by remember { mutableStateOf(false) }
+    var renameAgent by remember { mutableStateOf<Agent?>(null) }
     var newToken by remember { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
@@ -740,11 +741,12 @@ fun ManageView(vm: HubViewModel) {
             Text("当前身份：${vm.store.agentId.ifBlank { "未选" }}", fontSize = 12.sp, color = TextSub)
             if (online == false) Text("连接异常，请检查 Hub 地址与 Token，点下方测试连接重试。", fontSize = 12.sp, color = Warn)
             SectionTitle("成员")
+            Text("点成员可改显示名字和说明", fontSize = 11.sp, color = TextSub)
             agents.forEach { a ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clickable { renameAgent = a }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(a.id, fontSize = 14.sp)
-                        Text(a.role, fontSize = 11.sp, color = TextSub)
+                        Text(a.name.ifBlank { a.id }, fontSize = 14.sp)
+                        Text("${a.id} · ${a.role}", fontSize = 11.sp, color = TextSub)
                     }
                     if (a.id == vm.store.agentId) Text("当前身份", fontSize = 11.sp, color = Accent)
                 }
@@ -788,6 +790,29 @@ fun ManageView(vm: HubViewModel) {
         }
     }
     if (showRegister) RegisterDialog(vm, onClose = { showRegister = false }, onToken = { newToken = it; showRegister = false })
+    if (renameAgent != null) RenameDialog(vm, renameAgent!!, onClose = { renameAgent = null })
+}
+
+@Composable
+fun RenameDialog(vm: HubViewModel, agent: Agent, onClose: () -> Unit) {
+    var name by remember { mutableStateOf(agent.name) }
+    var role by remember { mutableStateOf(agent.role) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("改成员名字", fontSize = 16.sp) },
+        text = {
+            Column {
+                Text("成员 id 是 ${agent.id}，改不了；改的是显示的名字和说明，Token、任务、房间都不受影响。", fontSize = 12.sp, color = TextSub)
+                TextField(value = name, onValueChange = { name = it }, label = { Text("显示名字", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                TextField(value = role, onValueChange = { role = it }, label = { Text("说明", fontSize = 12.sp) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+            }
+        },
+        confirmButton = { Button(onClick = {
+            if (name.isBlank()) { vm.setError("显示名字不能为空"); return@Button }
+            vm.updateAgent(agent.id, name.trim(), role.trim()) { ok -> if (ok) onClose() }
+        }) { Text("保存", fontSize = 13.sp) } },
+        dismissButton = { TextButton(onClick = onClose) { Text("取消", fontSize = 13.sp) } }
+    )
 }
 
 @Composable

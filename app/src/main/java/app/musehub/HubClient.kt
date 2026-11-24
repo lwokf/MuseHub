@@ -240,6 +240,15 @@ class HubClient(var baseUrl: String, var token: String) {
         } catch (e: Exception) { Result.failure(Exception("连不上 Hub：${e.message}")) }
     }
 
+    /** Rename a member (display name / role only; id, token, rooms and tasks untouched). */
+    suspend fun updateAgent(id: String, name: String, role: String): Result<Agent> = withContext(Dispatchers.IO) {
+        try {
+            val body = JSONObject().put("name", name).put("role", role).toString()
+            val (code, text) = request("POST", "/api/agents/${URLEncoder.encode(id, "UTF-8")}", body)
+            ok(code, text) { parseAgent(it.getJSONObject("agent")) }
+        } catch (e: Exception) { Result.failure(Exception("连不上 Hub：${e.message}")) }
+    }
+
     /** Owner only. Returns the new agent's token on success. */
     suspend fun registerAgent(name: String, role: String): Result<String> = withContext(Dispatchers.IO) {
         try {
