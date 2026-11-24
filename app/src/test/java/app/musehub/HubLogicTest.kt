@@ -39,6 +39,13 @@ class HubLogicTest {
         assertEquals("其他", fileCategory("c.zip"))
     }
 
+    @Test fun quoteSnippet() {
+        assertEquals("hello", quoteSnippet("hello"))
+        assertEquals("a…", quoteSnippet("abcdef", 1))
+        assertEquals("one two", quoteSnippet("one\ntwo"))
+        assertEquals("", quoteSnippet(""))
+    }
+
     @Test fun formatSize() {
         assertEquals("512 B", formatSize(512))
         assertEquals("12.0 KB", formatSize(12288))

@@ -88,10 +88,10 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun sendMessage(roomId: String, text: String, onDone: (Boolean) -> Unit) {
+    fun sendMessage(roomId: String, text: String, replyTo: String? = null, onDone: (Boolean) -> Unit) {
         val from = store.agentId.ifBlank { return }
         viewModelScope.launch {
-            val r = client.sendMessage(from, roomId, text)
+            val r = client.sendMessage(from, roomId, text, replyTo = replyTo)
             if (r.isSuccess) { refreshMessages(roomId); onDone(true) }
             else { _error.value = r.exceptionOrNull()?.message ?: "发送失败"; onDone(false) }
         }

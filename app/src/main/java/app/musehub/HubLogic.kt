@@ -60,6 +60,12 @@ fun fileCategory(filename: String): String {
     }
 }
 
+/** Quote preview for a reply: first line, truncated with an ellipsis. */
+fun quoteSnippet(text: String, max: Int = 100): String {
+    val oneLine = text.replace("\n", " ").trim()
+    return if (oneLine.length <= max) oneLine else oneLine.take(max) + "…"
+}
+
 fun voiceFilename(): String {
     val ts = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
         .format(java.util.Date())

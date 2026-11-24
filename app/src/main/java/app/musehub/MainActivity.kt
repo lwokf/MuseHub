@@ -323,6 +323,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     val messages by vm.messages.collectAsState()
     val myId = vm.store.agentId
     var text by remember { mutableStateOf("") }
+    var replyTo by remember { mutableStateOf<HubMessage?>(null) }
     LaunchedEffect(roomId) { vm.refreshMessages(roomId) }
     val roomMessages = messages.filter { it.roomId == roomId }
     Column(Modifier.fillMaxSize()) {
@@ -334,10 +335,23 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
                 Box(
                     Modifier.background(if (mine) Blue else CardBg2, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp)
                 ) {
-                    Text(m.text, fontSize = 14.sp, color = TextMain)
+                    Column {
+                        if (m.replyFrom != null) {
+                            Text("回复 ${m.replyFrom}：${quoteSnippet(m.replyText ?: "")}", fontSize = 11.sp, color = if (mine) Color.White.copy(alpha = 0.85f) else TextSub, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(3.dp))
+                        }
+                        Text(m.text, fontSize = 14.sp, color = TextMain)
+                    }
                 }
                 if (m.taskId != null) Text("任务 ${m.taskId}", fontSize = 11.sp, color = TextSub)
+                Text("回复", fontSize = 11.sp, color = TextSub, modifier = Modifier.clickable { replyTo = m }.padding(top = 2.dp, bottom = 2.dp))
             }
+        }
+    }
+    if (replyTo != null) {
+        Row(Modifier.fillMaxWidth().background(CardBg, RoundedCornerShape(8.dp)).padding(start = 10.dp, top = 4.dp, bottom = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("回复 ${replyTo!!.from}：${quoteSnippet(replyTo!!.text)}", fontSize = 12.sp, color = TextSub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = { replyTo = null }) { Text("取消", fontSize = 12.sp) }
         }
     }
     if (mode == "voice") {
@@ -353,7 +367,8 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
                 if (text.isBlank()) return@IconButton
                 if (myId.isBlank()) { vm.setError("先在「管理」里选当前身份"); return@IconButton }
                 val t = text; text = ""
-                vm.sendMessage(roomId, t) { ok -> if (!ok) text = t }
+                val rt = replyTo; replyTo = null
+                vm.sendMessage(roomId, t, replyTo = rt?.id) { ok -> if (!ok) { text = t; replyTo = rt } }
             }) { Icon(Icons.Default.Send, contentDescription = "发送") }
         }
     }
