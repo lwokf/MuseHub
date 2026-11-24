@@ -313,6 +313,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     var text by remember { mutableStateOf("") }
     LaunchedEffect(roomId) { vm.refreshMessages(roomId) }
     val roomMessages = messages.filter { it.roomId == roomId }
+    Column(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
         items(roomMessages) { m ->
             val mine = m.from == myId
@@ -343,6 +344,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
                 vm.sendMessage(roomId, t) { ok -> if (!ok) text = t }
             }) { Icon(Icons.Default.Send, contentDescription = "发送") }
         }
+    }
     }
 }
 
