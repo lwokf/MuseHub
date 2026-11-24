@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -77,6 +78,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -326,10 +328,28 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     val myId = vm.store.agentId
     var text by remember { mutableStateOf("") }
     var replyTo by remember { mutableStateOf<HubMessage?>(null) }
+    val listState = rememberLazyListState()
+    var entered by remember(roomId) { mutableStateOf(false) }
+    val atBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            last != null && last.index >= info.totalItemsCount - 1
+        }
+    }
     LaunchedEffect(roomId) { vm.refreshMessages(roomId) }
     val roomMessages = messages.filter { it.roomId == roomId }
+    // Enter a room at the latest message, not the first one; new messages
+    // auto-scroll only while the user is already at the bottom.
+    LaunchedEffect(roomMessages.size) {
+        if (roomMessages.isEmpty()) return@LaunchedEffect
+        if (!entered || atBottom) {
+            listState.scrollToItem(roomMessages.size - 1)
+            entered = true
+        }
+    }
     Column(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+    LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
         items(roomMessages) { m ->
             val mine = m.from == myId
             Column(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
