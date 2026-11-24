@@ -60,6 +60,12 @@ fun fileCategory(filename: String): String {
     }
 }
 
+/** Display name for an agent id; falls back to the id when no name is set. */
+fun displayAgentName(agents: List<Agent>, id: String): String {
+    val name = agents.firstOrNull { it.id == id }?.name?.trim().orEmpty()
+    return if (name.isNotEmpty()) name else id
+}
+
 /** Quote preview for a reply: first line, truncated with an ellipsis. */
 fun quoteSnippet(text: String, max: Int = 100): String {
     val oneLine = text.replace("\n", " ").trim()

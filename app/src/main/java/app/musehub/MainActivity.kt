@@ -321,6 +321,7 @@ private fun typeLabel(t: String) = when (t) { "dm" -> "1对1"; "broadcast" -> "�
 @Composable
 fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceRecorder) {
     val messages by vm.messages.collectAsState()
+    val agents by vm.agents.collectAsState()
     val myId = vm.store.agentId
     var text by remember { mutableStateOf("") }
     var replyTo by remember { mutableStateOf<HubMessage?>(null) }
@@ -331,13 +332,13 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
         items(roomMessages) { m ->
             val mine = m.from == myId
             Column(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
-                Text("${m.from} · ${shortTime(m.createdAt)}", fontSize = 11.sp, color = TextSub)
+                Text("${displayAgentName(agents, m.from)} · ${shortTime(m.createdAt)}", fontSize = 11.sp, color = TextSub)
                 Box(
                     Modifier.background(if (mine) Blue else CardBg2, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp)
                 ) {
                     Column {
                         if (m.replyFrom != null) {
-                            Text("回复 ${m.replyFrom}：${quoteSnippet(m.replyText ?: "")}", fontSize = 11.sp, color = if (mine) Color.White.copy(alpha = 0.85f) else TextSub, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("回复 ${displayAgentName(agents, m.replyFrom)}：${quoteSnippet(m.replyText ?: "")}", fontSize = 11.sp, color = if (mine) Color.White.copy(alpha = 0.85f) else TextSub, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(3.dp))
                         }
                         Text(m.text, fontSize = 14.sp, color = TextMain)
@@ -350,7 +351,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     }
     if (replyTo != null) {
         Row(Modifier.fillMaxWidth().background(CardBg, RoundedCornerShape(8.dp)).padding(start = 10.dp, top = 4.dp, bottom = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("回复 ${replyTo!!.from}：${quoteSnippet(replyTo!!.text)}", fontSize = 12.sp, color = TextSub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("回复 ${displayAgentName(agents, replyTo!!.from)}：${quoteSnippet(replyTo!!.text)}", fontSize = 12.sp, color = TextSub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             TextButton(onClick = { replyTo = null }) { Text("取消", fontSize = 12.sp) }
         }
     }
@@ -521,7 +522,7 @@ fun TaskList(vm: HubViewModel, onOpen: (HubTask) -> Unit) {
                         Text(t.title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Text(taskCategory(t.status), fontSize = 11.sp, color = statusColor(t.status))
                     }
-                    Text("${t.assignee}${if (!t.deadline.isNullOrBlank()) " · 截止 ${t.deadline}" else ""}", fontSize = 11.sp, color = TextSub)
+                    Text("${displayAgentName(agents, t.assignee)}${if (!t.deadline.isNullOrBlank()) " · 截止 ${t.deadline}" else ""}", fontSize = 11.sp, color = TextSub)
                     if (t.description.isNotBlank()) Text(t.description, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -570,11 +571,12 @@ fun TaskDetail(vm: HubViewModel, task: HubTask, onBack: () -> Unit, onDone: (Hub
     var showReject by remember { mutableStateOf(false) }
     var reason by remember { mutableStateOf("") }
     val tasks by vm.tasks.collectAsState()
+    val agents by vm.agents.collectAsState()
     val fresh = tasks.firstOrNull { it.id == task.id } ?: task
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Text(fresh.title, fontSize = 20.sp)
-            Text("${taskCategory(fresh.status)} · ${fresh.assignee} · 创建人 ${fresh.creator}", fontSize = 12.sp, color = TextSub, modifier = Modifier.padding(top = 4.dp))
+            Text("${taskCategory(fresh.status)} · ${displayAgentName(agents, fresh.assignee)} · 创建人 ${displayAgentName(agents, fresh.creator)}", fontSize = 12.sp, color = TextSub, modifier = Modifier.padding(top = 4.dp))
             if (!fresh.deadline.isNullOrBlank()) Text("截止：${fresh.deadline}", fontSize = 12.sp)
             if (fresh.reason.isNotBlank()) Text("驳回原因：${fresh.reason}", fontSize = 12.sp, color = Err)
             if (fresh.description.isNotBlank()) Text(fresh.description, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))

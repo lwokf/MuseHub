@@ -39,6 +39,13 @@ class HubLogicTest {
         assertEquals("其他", fileCategory("c.zip"))
     }
 
+    @Test fun displayAgentName() {
+        val agents = listOf(Agent("muse-2", "二号", "第二个 Muse，执行"), Agent("muse-3", "", "第三个 Muse，执行"))
+        assertEquals("二号", displayAgentName(agents, "muse-2"))
+        assertEquals("muse-3", displayAgentName(agents, "muse-3"))
+        assertEquals("muse-9", displayAgentName(agents, "muse-9"))
+    }
+
     @Test fun quoteSnippet() {
         assertEquals("hello", quoteSnippet("hello"))
         assertEquals("a…", quoteSnippet("abcdef", 1))
