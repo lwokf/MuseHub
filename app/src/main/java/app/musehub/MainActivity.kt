@@ -18,6 +18,7 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -152,6 +153,17 @@ fun HubApp(vm: HubViewModel) {
         }
     }
     LaunchedEffect(selectedRoom) { if (selectedRoom != null) lastRoom = selectedRoom!! }
+
+    // 系统返回键：跟 MetaBatch 同样的修法。子页面先回上级，只有在聊天首页按才退出。
+    // 优先级：完成反馈 > 任务详情 > 聊天会话 > 非首页 Tab 回聊天首页；首页不拦截，交给系统退出。
+    BackHandler(enabled = feedbackTask != null || selectedTask != null || selectedRoom != null || tab != 0) {
+        when {
+            feedbackTask != null -> feedbackTask = null
+            selectedTask != null -> selectedTask = null
+            selectedRoom != null -> selectedRoom = null
+            tab != 0 -> tab = 0
+        }
+    }
 
     fun onCentralClick() {
         if (tab != 0) {
