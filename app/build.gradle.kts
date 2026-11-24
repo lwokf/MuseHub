@@ -12,8 +12,11 @@ android {
         applicationId = "app.musehub"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
+        // material-icons-extended pulls in tens of thousands of icon methods;
+        // the single-dex 64K limit is exceeded at dex-merge time without this.
+        multiDexEnabled = true
     }
     buildFeatures { compose = true }
     compileOptions {
