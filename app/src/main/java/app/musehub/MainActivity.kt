@@ -336,19 +336,13 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     var replyTo by remember { mutableStateOf<HubMessage?>(null) }
     var showAttach by remember { mutableStateOf(false) }
     var cameraFile by remember { mutableStateOf<File?>(null) }
+    // 待发送的附件：+ 菜单里选了文件先挂在这里（只存名字和内容，不立即上传），
+    // 输入框里打好文字后点发送，文件和文字一次发出去。一次只带一个文件，
+    // 再选一个会替换掉上一个。
+    var pendingFile by remember { mutableStateOf<Pair<String, ByteArray>?>(null) }
 
-    // 附件：上传到 Hub 文件库成功后，在当前房间发一条带文件名的消息，
-    // 对方在聊天里能看到、在「文件」里能下载。50MB 上限与敏感文件名
-    // 的检查跟「文件」页同一套。
-    fun sendUploadedFile(name: String, bytes: ByteArray) {
-        vm.uploadFile(name, bytes) { ok ->
-            if (!ok) return@uploadFile
-            vm.sendMessage(roomId, "文件：$name（${formatSize(bytes.size.toLong())}）") { sent ->
-                if (sent) vm.setToast("已发送 $name") else vm.setError("文件已上传，但聊天消息没发出去")
-            }
-        }
-    }
-
+    // 附件先挂到输入框，不立即上传；点发送时才上传文件库，再把文字和
+    // 文件名拼成一条消息发到房间。50MB 上限与敏感文件名的检查跟「文件」页同一套。
     fun handlePickedFile(uri: Uri) {
         if (myId.isBlank()) { vm.setError("先在「管理」里选当前身份"); return }
         val (name, size) = queryFileInfo(ctx, uri)
@@ -359,7 +353,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
             val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: run { vm.setError("读文件失败"); return }
             if (bytes.size > 50 * 1024 * 1024) { vm.setError("超 50MB，Hub 不收"); return }
-            sendUploadedFile(name, bytes)
+            pendingFile = name to bytes
         } catch (e: Exception) { vm.setError("读文件失败：${e.message}") }
     }
 
@@ -378,7 +372,7 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
             try {
                 val bytes = f.readBytes()
                 if (bytes.size > 50 * 1024 * 1024) { vm.setError("超 50MB，Hub 不收"); return@rememberLauncherForActivityResult }
-                sendUploadedFile(f.name, bytes)
+                pendingFile = f.name to bytes
             } catch (e: Exception) { vm.setError("读照片失败：${e.message}") }
             finally { f.delete() }
         }
@@ -459,6 +453,15 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
     if (mode == "voice") {
         VoicePanel(vm, recorder)
     } else {
+        val pending = pendingFile
+        if (pending != null) {
+            Row(Modifier.fillMaxWidth().background(CardBg, RoundedCornerShape(8.dp)).padding(start = 10.dp, top = 4.dp, bottom = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AttachFile, contentDescription = null, tint = TextSub, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("附件：${pending.first}（${formatSize(pending.second.size.toLong())}）", fontSize = 12.sp, color = TextSub, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                TextButton(onClick = { pendingFile = null }) { Text("取消", fontSize = 12.sp) }
+            }
+        }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Box {
                 IconButton(onClick = { showAttach = true }) { Icon(Icons.Default.Add, contentDescription = "发送文件") }
@@ -491,11 +494,28 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
             )
             Spacer(Modifier.width(6.dp))
             IconButton(onClick = {
-                if (text.isBlank()) return@IconButton
+                val p = pendingFile
+                if (text.isBlank() && p == null) return@IconButton
                 if (myId.isBlank()) { vm.setError("先在「管理」里选当前身份"); return@IconButton }
                 val t = text; text = ""
                 val rt = replyTo; replyTo = null
-                vm.sendMessage(roomId, t, replyTo = rt?.id) { ok -> if (!ok) { text = t; replyTo = rt } }
+                pendingFile = null
+                fun sendText(msgText: String, fileName: String?) {
+                    vm.sendMessage(roomId, msgText, replyTo = rt?.id) { ok ->
+                        if (ok) { if (fileName != null) vm.setToast("已发送 $fileName") }
+                        else { text = t; replyTo = rt; pendingFile = p }
+                    }
+                }
+                if (p != null) {
+                    vm.uploadFile(p.first, p.second) { ok ->
+                        if (ok) {
+                            val fileLine = "文件：${p.first}（${formatSize(p.second.size.toLong())}）"
+                            sendText(if (t.isBlank()) fileLine else "$t\n$fileLine", p.first)
+                        } else { text = t; replyTo = rt; pendingFile = p }
+                    }
+                } else {
+                    sendText(t, null)
+                }
             }) { Icon(Icons.Default.Send, contentDescription = "发送") }
         }
     }
@@ -919,7 +939,7 @@ fun ManageView(vm: HubViewModel) {
                 Text("${shortTime(a.time)} ${a.agent} ${a.action} ${a.objectId}", fontSize = 12.sp)
             }
             SectionTitle("关于 Muse Hub")
-            Text("Muse Hub App 0.1.2 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
+            Text("Muse Hub App 0.1.3 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
             SectionTitle("帮助与反馈")
             Text("Token 在 Dedirock 服务器 /root/muse-hub/data/tokens.json 上取，一对一私下交给对应 Muse。连不上时先点「测试连接」，看是地址错、Token 无效还是 Hub 不通。", fontSize = 12.sp, color = TextSub)
             Spacer(Modifier.height(16.dp))
