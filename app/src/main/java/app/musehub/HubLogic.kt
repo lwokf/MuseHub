@@ -77,3 +77,9 @@ fun voiceFilename(): String {
         .format(java.util.Date())
     return "voice-$ts.m4a"
 }
+
+fun photoFilename(): String {
+    val ts = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+        .format(java.util.Date())
+    return "photo-$ts.jpg"
+}

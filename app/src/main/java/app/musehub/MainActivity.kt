@@ -45,16 +45,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -93,6 +97,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -323,11 +328,86 @@ private fun typeLabel(t: String) = when (t) { "dm" -> "1对1"; "broadcast" -> "�
 
 @Composable
 fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceRecorder) {
+    val ctx = LocalContext.current
     val messages by vm.messages.collectAsState()
     val agents by vm.agents.collectAsState()
     val myId = vm.store.agentId
     var text by remember { mutableStateOf("") }
     var replyTo by remember { mutableStateOf<HubMessage?>(null) }
+    var showAttach by remember { mutableStateOf(false) }
+    var cameraFile by remember { mutableStateOf<File?>(null) }
+
+    // 附件：上传到 Hub 文件库成功后，在当前房间发一条带文件名的消息，
+    // 对方在聊天里能看到、在「文件」里能下载。50MB 上限与敏感文件名
+    // 的检查跟「文件」页同一套。
+    fun sendUploadedFile(name: String, bytes: ByteArray) {
+        vm.uploadFile(name, bytes) { ok ->
+            if (!ok) return@uploadFile
+            vm.sendMessage(roomId, "文件：$name（${formatSize(bytes.size.toLong())}）") { sent ->
+                if (sent) vm.setToast("已发送 $name") else vm.setError("文件已上传，但聊天消息没发出去")
+            }
+        }
+    }
+
+    fun handlePickedFile(uri: Uri) {
+        if (myId.isBlank()) { vm.setError("先在「管理」里选当前身份"); return }
+        val (name, size) = queryFileInfo(ctx, uri)
+        if (name.isBlank()) { vm.setError("读不到文件名"); return }
+        if (isSensitiveFilename(name)) { vm.setError("这个文件名像密码/密钥类，Hub 不收"); return }
+        if (size > 50L * 1024 * 1024) { vm.setError("超 50MB，Hub 不收"); return }
+        try {
+            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: run { vm.setError("读文件失败"); return }
+            if (bytes.size > 50 * 1024 * 1024) { vm.setError("超 50MB，Hub 不收"); return }
+            sendUploadedFile(name, bytes)
+        } catch (e: Exception) { vm.setError("读文件失败：${e.message}") }
+    }
+
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) handlePickedFile(uri)
+    }
+    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) handlePickedFile(uri)
+    }
+    val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) handlePickedFile(uri)
+    }
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val f = cameraFile
+        if (ok && f != null && f.exists()) {
+            try {
+                val bytes = f.readBytes()
+                if (bytes.size > 50 * 1024 * 1024) { vm.setError("超 50MB，Hub 不收"); return@rememberLauncherForActivityResult }
+                sendUploadedFile(f.name, bytes)
+            } catch (e: Exception) { vm.setError("读照片失败：${e.message}") }
+            finally { f.delete() }
+        }
+    }
+    val cameraPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            try {
+                val dir = File(ctx.cacheDir, "images").apply { mkdirs() }
+                val f = File(dir, photoFilename())
+                cameraFile = f
+                takePictureLauncher.launch(FileProvider.getUriForFile(ctx, "app.musehub.fileprovider", f))
+            } catch (e: Exception) { vm.setError("相机启动失败：${e.message}") }
+        } else {
+            vm.setError("没给相机权限，拍不了照")
+        }
+    }
+    fun launchCamera() {
+        if (myId.isBlank()) { vm.setError("先在「管理」里选当前身份"); return }
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                val dir = File(ctx.cacheDir, "images").apply { mkdirs() }
+                val f = File(dir, photoFilename())
+                cameraFile = f
+                takePictureLauncher.launch(FileProvider.getUriForFile(ctx, "app.musehub.fileprovider", f))
+            } catch (e: Exception) { vm.setError("相机启动失败：${e.message}") }
+        } else {
+            cameraPermLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
     val listState = rememberLazyListState()
     var entered by remember(roomId) { mutableStateOf(false) }
     val atBottom by remember {
@@ -380,6 +460,31 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
         VoicePanel(vm, recorder)
     } else {
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                IconButton(onClick = { showAttach = true }) { Icon(Icons.Default.Add, contentDescription = "发送文件") }
+                DropdownMenu(expanded = showAttach, onDismissRequest = { showAttach = false }) {
+                    DropdownMenuItem(
+                        text = { Text("相机", fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Default.PhotoCamera, contentDescription = null) },
+                        onClick = { showAttach = false; launchCamera() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("照片", fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Default.Photo, contentDescription = null) },
+                        onClick = { showAttach = false; photoLauncher.launch("image/*") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("视频", fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Default.Videocam, contentDescription = null) },
+                        onClick = { showAttach = false; videoLauncher.launch("video/*") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("文件", fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null) },
+                        onClick = { showAttach = false; fileLauncher.launch("*/*") }
+                    )
+                }
+            }
             TextField(
                 value = text, onValueChange = { text = it }, placeholder = { Text("发消息…", fontSize = 14.sp) },
                 singleLine = true, modifier = Modifier.weight(1f)
@@ -814,7 +919,7 @@ fun ManageView(vm: HubViewModel) {
                 Text("${shortTime(a.time)} ${a.agent} ${a.action} ${a.objectId}", fontSize = 12.sp)
             }
             SectionTitle("关于 Muse Hub")
-            Text("Muse Hub App 0.1.0 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
+            Text("Muse Hub App 0.1.2 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
             SectionTitle("帮助与反馈")
             Text("Token 在 Dedirock 服务器 /root/muse-hub/data/tokens.json 上取，一对一私下交给对应 Muse。连不上时先点「测试连接」，看是地址错、Token 无效还是 Hub 不通。", fontSize = 12.sp, color = TextSub)
             Spacer(Modifier.height(16.dp))
