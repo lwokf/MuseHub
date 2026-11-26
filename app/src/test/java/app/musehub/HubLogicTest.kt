@@ -59,7 +59,7 @@ class HubLogicTest {
         assertEquals("8.4 MB", formatSize(8808038))
     }
 
-    @Test fun photoFilename() {
+    @Test fun photoFilenameShape() {
         val name = photoFilename()
         assertTrue(name.startsWith("photo-"))
         assertTrue(name.endsWith(".jpg"))
