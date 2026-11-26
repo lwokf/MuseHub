@@ -11,7 +11,7 @@ import java.net.URLEncoder
 
 data class Agent(val id: String, val name: String, val role: String)
 data class Room(val id: String, val name: String, val type: String, val members: List<String>)
-data class HubMessage(val id: String, val seq: Long, val from: String, val roomId: String, val taskId: String?, val text: String, val createdAt: String, val replyTo: String? = null, val replyFrom: String? = null, val replyText: String? = null)
+data class HubMessage(val id: String, val seq: Long, val from: String, val roomId: String, val taskId: String?, val text: String, val createdAt: String, val replyTo: String? = null, val replyFrom: String? = null, val replyText: String? = null, val source: String? = null)
 data class HistoryEntry(val status: String, val by: String, val at: String, val reason: String)
 data class HubTask(val id: String, val title: String, val description: String, val assignee: String, val creator: String, val deadline: String?, val status: String, val reason: String, val history: List<HistoryEntry>)
 data class HubFile(val id: String, val filename: String, val uploader: String, val taskId: String?, val sha256: String, val size: Long, val createdAt: String)
@@ -76,7 +76,8 @@ class HubClient(var baseUrl: String, var token: String) {
         o.optString("text"), o.optString("created_at"),
         if (o.isNull("reply_to")) null else o.optString("reply_to"),
         if (o.isNull("reply_from")) null else o.optString("reply_from"),
-        if (o.isNull("reply_text")) null else o.optString("reply_text")
+        if (o.isNull("reply_text")) null else o.optString("reply_text"),
+        if (o.isNull("source")) null else o.optString("source")
     )
     private fun parseTask(o: JSONObject): HubTask {
         val hist = mutableListOf<HistoryEntry>()
@@ -140,7 +141,8 @@ class HubClient(var baseUrl: String, var token: String) {
 
     suspend fun sendMessage(from: String, roomId: String, text: String, taskId: String? = null, replyTo: String? = null): Result<HubMessage> = withContext(Dispatchers.IO) {
         try {
-            val body = JSONObject().put("from", from).put("room_id", roomId).put("text", text)
+            // App 里手打的消息记 source=manual；定时轮询代回的走 send_reply.py，记 source=auto。
+            val body = JSONObject().put("from", from).put("room_id", roomId).put("text", text).put("source", "manual")
             if (taskId != null) body.put("task_id", taskId)
             if (replyTo != null) body.put("reply_to", replyTo)
             val (code, resp) = request("POST", "/api/messages", body.toString())

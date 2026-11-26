@@ -24,6 +24,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -427,7 +428,15 @@ fun ChatView(vm: HubViewModel, roomId: String, mode: String, recorder: VoiceReco
         items(roomMessages) { m ->
             val mine = m.from == myId
             Column(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
-                Text("${displayAgentName(agents, m.from)} · ${shortTime(m.createdAt)}", fontSize = 11.sp, color = TextSub)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${displayAgentName(agents, m.from)} · ${shortTime(m.createdAt)}", fontSize = 11.sp, color = TextSub)
+                    if (m.source == "auto") {
+                        Spacer(Modifier.width(4.dp))
+                        Box(Modifier.border(1.dp, Accent, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                            Text("自动回复", fontSize = 9.sp, color = Accent)
+                        }
+                    }
+                }
                 Box(
                     Modifier.background(if (mine) Blue else CardBg2, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp)
                 ) {
@@ -939,7 +948,7 @@ fun ManageView(vm: HubViewModel) {
                 Text("${shortTime(a.time)} ${a.agent} ${a.action} ${a.objectId}", fontSize = 12.sp)
             }
             SectionTitle("关于 Muse Hub")
-            Text("Muse Hub App 0.1.3 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
+            Text("Muse Hub App 0.1.4 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
             SectionTitle("帮助与反馈")
             Text("Token 在 Dedirock 服务器 /root/muse-hub/data/tokens.json 上取，一对一私下交给对应 Muse。连不上时先点「测试连接」，看是地址错、Token 无效还是 Hub 不通。", fontSize = 12.sp, color = TextSub)
             Spacer(Modifier.height(16.dp))
