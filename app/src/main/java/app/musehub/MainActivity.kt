@@ -948,7 +948,7 @@ fun ManageView(vm: HubViewModel) {
                 Text("${shortTime(a.time)} ${a.agent} ${a.action} ${a.objectId}", fontSize = 12.sp)
             }
             SectionTitle("关于 Muse Hub")
-            Text("Muse Hub App 0.1.4 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
+            Text("Muse Hub App 0.1.5 · Hub：${vm.store.baseUrl}", fontSize = 12.sp, color = TextSub)
             SectionTitle("帮助与反馈")
             Text("Token 在 Dedirock 服务器 /root/muse-hub/data/tokens.json 上取，一对一私下交给对应 Muse。连不上时先点「测试连接」，看是地址错、Token 无效还是 Hub 不通。", fontSize = 12.sp, color = TextSub)
             Spacer(Modifier.height(16.dp))
